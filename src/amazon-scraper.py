@@ -62,12 +62,55 @@ class AmazonScraper:
 
         return productASIN
 
-    def fetchProductData(self, payload: dict) -> str:
-        # Send request to scraper API with payload
-        response = requests.get(self.scraperUrl, params=payload)
+    def fetchProductImage(self, imageUrl: str) -> str:
+        try:
+            response = requests.get(imageUrl)
 
-        # Print JSON response
-        print(type(response.json()))
+            if response.status_code == 200:
+                with open("static/images/Amazon/image.jpg", "wb") as f:
+                    f.write(response.content)
+            else:
+                print(f"Failed to fetch image. Status code: {response.status_code}")
+
+        except Exception as e:
+            print(f"An error occurred while fetching the image: {e}")
+
+    def fetchProductData(self, payload: dict) -> str:
+        try:
+            # Send request to scraper API with payload
+            response = requests.get(self.scraperUrl, params=payload)
+            response.raise_for_status()  # Raise HTTPError for status codes 4xx or 5xx
+
+            data = json.loads(response.text)
+
+            productName = data.get("name")
+            productPrice = data.get("pricing")
+            productImageUrl = data.get("images")[0]
+
+            if productName and productPrice and productImageUrl:
+                print(
+                    colored("\nProduct Name: ", "yellow")
+                    + colored(f"{productName}", "cyan")
+                )
+                print(
+                    colored("Product Price: ", "yellow")
+                    + colored(f"{productPrice}\n", "cyan")
+                )
+                self.fetchProductImage(productImageUrl)
+
+            else:
+                print("Incomplete data received from the Scraper API")
+
+        except requests.exceptions.RequestException as e:
+            print(f"Error occurred while making the request to the Scraper API: {e}")
+
+        except (KeyError, json.JSONDecodeError) as e:
+            print(
+                f"Error occurred while parsing the response from the Scraper API: {e}"
+            )
+
+        except Exception as e:
+            print(f"An unexpected error occurred: {e}")
 
 
 def main():
@@ -76,7 +119,9 @@ def main():
 
     try:
         # Get target product URL from user
-        targetUrl = input("Enter the URL of the product to track it's price: ")
+        targetUrl = input(
+            colored("\nEnter the URL of the product to track it's price: ", "yellow")
+        )
 
         # Determine domain from URL
         domainName = scraper.getDomain(targetUrl)
